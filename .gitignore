@@ -1,0 +1,4 @@
+api.txt
+conversation.json
+__pycache__/
+*.pyc
