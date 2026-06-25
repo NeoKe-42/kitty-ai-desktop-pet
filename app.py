@@ -98,15 +98,10 @@ class DeepSeekClient:
         self.history = []
         self._save_history()
 
-    def chat(self, user_text: str) -> str:
+    def _call_api(self, messages: list[dict[str, str]]) -> str:
         api_key = self._read_text(API_KEY_FILE)
         if not api_key:
             raise RuntimeError("api.txt 里还没有 DeepSeek API 密钥。")
-
-        personality = self._read_text(PERSONALITY_FILE) or DEFAULT_PERSONALITY
-        messages = [{"role": "system", "content": personality}]
-        messages.extend(self.history[-16:])
-        messages.append({"role": "user", "content": user_text})
 
         payload = json.dumps(
             {
@@ -138,9 +133,17 @@ class DeepSeekClient:
             raise RuntimeError(f"无法连接 DeepSeek：{exc.reason}") from exc
 
         try:
-            answer = result["choices"][0]["message"]["content"].strip()
+            return result["choices"][0]["message"]["content"].strip()
         except (KeyError, IndexError, TypeError, AttributeError) as exc:
             raise RuntimeError("DeepSeek 返回了无法识别的数据。") from exc
+
+    def chat(self, user_text: str) -> str:
+        personality = self._read_text(PERSONALITY_FILE) or DEFAULT_PERSONALITY
+        messages: list[dict[str, str]] = [{"role": "system", "content": personality}]
+        messages.extend(self.history[-16:])
+        messages.append({"role": "user", "content": user_text})
+
+        answer = self._call_api(messages)
 
         self.history.extend(
             [
@@ -151,6 +154,38 @@ class DeepSeekClient:
         self.history = self.history[-20:]
         self._save_history()
         return answer
+
+    def generate_proactive(self) -> str:
+        """生成一句主动搭话，不修改对话历史。"""
+        personality = self._read_text(PERSONALITY_FILE) or DEFAULT_PERSONALITY
+
+        system_content = (
+            personality
+            + "\n\n"
+            "现在你要主动找用户搭话。根据最近的对话记录，生成一句简短自然的搭话。\n"
+            "要求：\n"
+            "- 一句话即可，不超过 30 字\n"
+            "- 自然、生活化，像是突然想到什么就说了出来\n"
+            "- 可以表达关心（饿了/累了/想聊天）、撒个娇、邀请互动\n"
+            "- 不要用括号描写动作\n"
+            "- 不要使用表情符号"
+        )
+
+        messages: list[dict[str, str]] = [{"role": "system", "content": system_content}]
+
+        context = self.history[-4:]
+        if context:
+            context_str = "\n".join(
+                f"{m['role']}: {m['content']}" for m in context
+            )
+            messages.append(
+                {
+                    "role": "system",
+                    "content": f"最近的对话记录供参考（不要直接引用）：\n{context_str}",
+                }
+            )
+
+        return self._call_api(messages)
 
 
 class QuickBubble:
@@ -294,6 +329,119 @@ class QuickBubble:
         self.window.deiconify()
         self.window.lift()
         self.entry.focus_force()
+
+
+class ProactiveBubble:
+    """轻量级被动消息气泡，自动消失，点击可回复。"""
+
+    def __init__(self, pet: "DesktopPet") -> None:
+        self.pet = pet
+        self.window: tk.Toplevel | None = None
+        self.label: tk.Label | None = None
+        self._auto_hide_id: str | None = None
+
+    def show(self, text: str) -> None:
+        if not self.window or not self.window.winfo_exists():
+            self._build()
+        self.label.configure(text=text)
+        self.reposition()
+        self.window.deiconify()
+        self.window.lift()
+        self.window.attributes("-topmost", True)
+        self._auto_hide_id = self.window.after(10000, self._on_timeout)
+
+    def hide(self) -> None:
+        self._cancel_auto_hide()
+        if self.window and self.window.winfo_exists():
+            self.window.withdraw()
+
+    def reposition(self) -> None:
+        if not self.window or not self.window.winfo_exists():
+            return
+        self.window.update_idletasks()
+        req_w = self.window.winfo_reqwidth()
+        req_h = self.window.winfo_reqheight()
+        width = max(200, min(320, req_w))
+        height = max(60, min(160, req_h))
+        pet_x = self.pet.root.winfo_x()
+        pet_y = self.pet.root.winfo_y()
+        screen_w = self.pet.root.winfo_screenwidth()
+        screen_h = self.pet.root.winfo_screenheight()
+
+        x = pet_x + PET_SIZE - 40
+        if x + width > screen_w - 8:
+            x = pet_x - width + 40
+        x = max(8, min(x, screen_w - width - 8))
+        y = pet_y - height - 8
+        if y < 8:
+            y = pet_y + PET_SIZE + 8
+        y = min(y, screen_h - height - 8)
+        self.window.geometry(f"{width}x{height}+{x}+{y}")
+
+    def _build(self) -> None:
+        self.window = tk.Toplevel(self.pet.root)
+        self.window.title("")
+        self.window.overrideredirect(True)
+        self.window.attributes("-topmost", True)
+        self.window.configure(bg="#ef7998")
+        self.window.withdraw()
+
+        frame = tk.Frame(self.window, bg="#fff9fb", padx=16, pady=10)
+        frame.pack(padx=2, pady=2, fill="both", expand=True)
+
+        tk.Label(
+            frame,
+            text="Kitty",
+            bg="#fff9fb",
+            fg="#d62f5f",
+            font=("Microsoft YaHei UI", 10, "bold"),
+        ).pack(anchor="w")
+
+        self.label = tk.Label(
+            frame,
+            text="",
+            bg="#fff9fb",
+            fg="#333333",
+            justify="left",
+            anchor="w",
+            wraplength=280,
+            font=("Microsoft YaHei UI", 10),
+            pady=(6, 2),
+        )
+        self.label.pack(fill="x")
+
+        hint = tk.Label(
+            frame,
+            text="点我回复",
+            bg="#fff9fb",
+            fg="#ef476f",
+            font=("Microsoft YaHei UI", 8),
+            cursor="hand2",
+        )
+        hint.pack(anchor="e")
+
+        for widget in (self.window, frame, self.label, hint):
+            widget.bind("<Button-1>", self._on_click)
+
+    def _on_click(self, _event: tk.Event = None) -> None:
+        self._cancel_auto_hide()
+        self.hide()
+        self.pet._on_proactive_dismissed()
+        self.pet.quick.show()
+
+    def _on_timeout(self) -> None:
+        self._auto_hide_id = None
+        self.hide()
+        self.pet._on_proactive_dismissed()
+
+    def _cancel_auto_hide(self) -> None:
+        if self._auto_hide_id is not None:
+            try:
+                if self.window:
+                    self.window.after_cancel(self._auto_hide_id)
+            except tk.TclError:
+                pass
+            self._auto_hide_id = None
 
 
 class ChatWindow:
@@ -455,6 +603,11 @@ class DesktopPet:
         self.events: queue.Queue[tuple[str, str, str]] = queue.Queue()
         self.quick = QuickBubble(self)
         self.chat = ChatWindow(self)
+        self.proactive_enabled = True
+        self.proactive_next_time = time.monotonic() + random.uniform(900.0, 2700.0)
+        self.proactive_is_generating = False
+        self.proactive_is_showing = False
+        self.proactive_bubble = ProactiveBubble(self)
         self.drag_origin: tuple[int, int, int, int] | None = None
         self.dragged = False
         self.status = "idle"
@@ -491,6 +644,12 @@ class DesktopPet:
         self.menu.add_command(label="查看聊天记录", command=self.chat.show)
         self.menu.add_command(label="编辑性格", command=self.open_personality)
         self.menu.add_command(label="清空对话记忆", command=self.client.clear_history)
+        self.proactive_var = tk.BooleanVar(value=True)
+        self.menu.add_checkbutton(
+            label="允许主动搭话",
+            variable=self.proactive_var,
+            command=self._toggle_proactive,
+        )
         self.menu.add_separator()
         self.menu.add_command(label="退出", command=self.root.destroy)
 
@@ -572,6 +731,7 @@ class DesktopPet:
                 self.play_animation(direction, cycles=None)
         self.root.geometry(f"+{wx + dx}+{wy + dy}")
         self.quick.reposition()
+        self.proactive_bubble.reposition()
 
     def end_drag(self, _event: tk.Event) -> None:
         was_dragged = self.dragged
@@ -629,16 +789,71 @@ class DesktopPet:
         try:
             while True:
                 kind, text, source = self.events.get_nowait()
-                self.quick.finish(kind, text)
-                self.chat.finish(kind, text, source)
-                self.set_status("idle")
-                self.play_animation(
-                    "jumping" if kind == "answer" else "failed",
-                    cycles=1,
-                )
+                if kind == "proactive":
+                    self.proactive_is_generating = False
+                    self.set_status("idle")
+                    self.proactive_is_showing = True
+                    self.proactive_bubble.show(text)
+                elif kind == "proactive_done":
+                    self.proactive_is_generating = False
+                    self.set_status("idle")
+                    self._reschedule_proactive()
+                else:
+                    self.quick.finish(kind, text)
+                    self.chat.finish(kind, text, source)
+                    self.set_status("idle")
+                    self.play_animation(
+                        "jumping" if kind == "answer" else "failed",
+                        cycles=1,
+                    )
+                    self._reschedule_proactive(after_chat=True)
         except queue.Empty:
             pass
+
+        self._check_proactive()
         self.root.after(100, self.poll_events)
+
+    def _check_proactive(self) -> None:
+        if not self.proactive_enabled:
+            return
+        if self.proactive_is_generating or self.proactive_is_showing:
+            return
+        if self.status != "idle":
+            return
+        if time.monotonic() < self.proactive_next_time:
+            return
+
+        self.proactive_is_generating = True
+        self.set_status("thinking")
+
+        def worker() -> None:
+            try:
+                text = self.client.generate_proactive()
+                self.events.put(("proactive", text, "proactive"))
+            except Exception as exc:
+                self.events.put(("proactive_done", str(exc), "proactive"))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _reschedule_proactive(self, after_chat: bool = False) -> None:
+        if after_chat:
+            delay = random.uniform(1800.0, 3600.0)
+        else:
+            delay = random.uniform(900.0, 2700.0)
+        self.proactive_next_time = time.monotonic() + delay
+
+    def _on_proactive_dismissed(self) -> None:
+        self.proactive_is_showing = False
+        self._reschedule_proactive()
+
+    def _toggle_proactive(self) -> None:
+        self.proactive_enabled = self.proactive_var.get()
+        if not self.proactive_enabled:
+            self.proactive_bubble.hide()
+            self.proactive_is_showing = False
+            self.proactive_is_generating = False
+        else:
+            self._reschedule_proactive()
 
     def run(self) -> None:
         self.root.mainloop()
