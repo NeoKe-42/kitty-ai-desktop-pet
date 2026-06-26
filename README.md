@@ -1,32 +1,55 @@
-# Kitty AI 独立桌宠
+# Kitty AI Desktop Pet
 
-这是一个独立运行的 Windows 桌宠，不依赖 Codex。
+这个仓库现在按平台分区：
 
-## 使用
+- `windows/`：Windows 桌面宠物，Python + Tkinter 实现。
+- `android/`：Android 版本工程和调试 APK。
+- `tools/`：资源生成和处理脚本。
+- `launcher/`：启动器相关文件。
 
-双击 `启动桌宠.bat`。
+## Windows 版
 
-- 单击 Kitty：在角色旁打开迷你聊天气泡
-- 在气泡中按 `Enter`：直接发送
-- 拖动 Kitty：移动桌宠，聊天气泡会跟随
-- 右键 Kitty：直接聊天、查看完整记录、编辑性格、清空记忆或退出
+双击根目录的 `启动桌宠.bat`，它会自动进入 `windows/` 并启动 `windows/app.py`。
 
-## 动画行为
+Windows 版主要文件：
 
-- 待机：眨眼，并随机出现歪头、观察、等待或挥手
-- 单击：挥手后打开聊天气泡
-- 拖动：根据方向播放向左或向右奔跑
-- 放下：播放落地弹跳
-- 思考：播放专注处理动作
-- 回复成功：开心跳跃
-- 连接失败：播放低落动作
+- `windows/app.py`：桌面端主程序。
+- `windows/assets/`：桌宠图片和动画帧。
+- `windows/api.txt`：DeepSeek API Key，仅本地使用。
+- `windows/性格.md`：Kitty 核心人格，右键菜单可编辑。
+- `windows/config.json`：模型与功能开关配置。
+- `windows/conversation.json`：短期上下文，保留最近 40 条 message，约 20 轮对话。
+- `windows/conversation_full.jsonl`：完整聊天归档，只追加，不放进 prompt。
+- `windows/long_memory.json`：长期记忆。
+- `windows/personality_delta.json`：性格/语气微调。
+- `windows/pending_questions.json`：待问问题。
 
-完整聊天记录窗口只是备用入口，输入框固定在窗口底部，按 `Enter` 发送。
+也可以在命令行运行：
 
-## 配置
+```powershell
+cd windows
+python app.py
+```
 
-- `api.txt`：DeepSeek API 密钥，只保存在本机
-- `性格.md`：桌宠人格设定，保存后下一次消息立即生效
-- `conversation.json`：首次聊天后自动创建，仅保存最近 10 轮对话
+## Android 版
 
-默认使用 DeepSeek `deepseek-v4-flash` 的非思考模式。
+Android 工程在 `android/` 中：
+
+- `android/app/`：Android 应用源码。
+- `android/gradle/`、`android/gradlew.bat`：Gradle 构建文件。
+- `android/Kitty-AI-Android-debug.apk`：当前调试包。
+
+构建 Android：
+
+```powershell
+cd android
+.\gradlew.bat assembleDebug
+```
+
+## 资源工具
+
+`tools/build_asset.py` 和 `tools/extract_contact_sheet.py` 默认读写 Windows 桌面端资源：
+
+- 输入主图：`windows/kitty 照片.jpg`
+- 输出主图：`windows/assets/kitty.png`
+- 输出动画：`windows/assets/animations/`

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kitty AI</string>
+    <string name="notification_channel">Kitty 桌宠</string>
+    <string name="notification_title">Kitty 正陪着你</string>
+    <string name="notification_text">点击打开聊天；可在应用内关闭悬浮桌宠</string>
+</resources>

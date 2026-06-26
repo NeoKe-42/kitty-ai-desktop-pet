@@ -5,11 +5,12 @@ from PIL import Image, ImageFilter
 
 
 ROOT = Path(__file__).resolve().parents[1]
+WINDOWS_DIR = ROOT / "windows"
 SOURCE = Path(
     r"C:\Users\m1586\AppData\Local\Temp"
     r"\codex-clipboard-972c0a72-a9de-413b-a96f-0d902ce5f678.png"
 )
-OUTPUT = ROOT / "assets" / "animations"
+OUTPUT = WINDOWS_DIR / "assets" / "animations"
 
 CELL_WIDTH = 96
 ROW_HEIGHT = 126

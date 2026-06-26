@@ -5,8 +5,9 @@ from PIL import Image, ImageFilter
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "kitty 照片.jpg"
-OUTPUT = ROOT / "assets" / "kitty.png"
+WINDOWS_DIR = ROOT / "windows"
+SOURCE = WINDOWS_DIR / "kitty 照片.jpg"
+OUTPUT = WINDOWS_DIR / "assets" / "kitty.png"
 
 
 def is_background(rgb: tuple[int, int, int]) -> bool:
