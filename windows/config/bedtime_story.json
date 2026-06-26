@@ -1,0 +1,22 @@
+{
+  "bedtime_story": {
+    "enabled": true,
+    "listener_name": "妹妹",
+    "default_duration": "3min",
+    "favorite_themes": ["小猫", "月亮", "小兔子", "星星", "云朵"],
+    "avoid_themes": ["怪物", "黑暗森林", "打斗", "追赶", "迷路", "哭泣", "死亡", "恐怖", "生病"],
+    "opening_line": "妹妹躺好了吗？Kitty 要开始讲故事啦。",
+    "ending_style": "自然引导妹妹放松、闭上眼睛、慢慢睡觉",
+    "default_tone": "温柔、安静、慢节奏、低刺激、可爱但不过度兴奋",
+    "save_story_history": true
+  },
+  "tts": {
+    "bedtime_voice": "zh-CN-XiaoxiaoNeural",
+    "bedtime_rate": "-18%",
+    "bedtime_pitch": "-2Hz",
+    "bedtime_volume": "-8%",
+    "output_dir": "audio/bedtime",
+    "auto_play": true,
+    "max_audio_files": 20
+  }
+}

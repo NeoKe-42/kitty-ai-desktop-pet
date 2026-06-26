@@ -19,6 +19,13 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
 
+# Lightweight bedtime-story intent detector (no heavy deps)
+from services.bedtime_story_service import (
+    is_bedtime_story_request,
+    is_replay_request,
+    is_stop_request,
+)
+
 
 APP_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 API_KEY_FILE = APP_DIR / "api.txt"
@@ -1668,6 +1675,37 @@ class DesktopPet:
     def begin_chat(self, text: str, source: str) -> None:
         self.set_status("thinking")
         self.play_animation("running", cycles=None)
+
+        # -- /stop command ------------------------------------------------
+        if is_stop_request(text):
+            from services.bedtime_story_service import stop_playback
+            self.events.put(("answer", stop_playback(), source))
+            return
+
+        # -- /replay command ----------------------------------------------
+        if is_replay_request(text):
+            def replay_worker() -> None:
+                try:
+                    from services.bedtime_story_service import replay_last_story
+                    msg = replay_last_story()
+                    self.events.put(("answer", msg, source))
+                except Exception as exc:
+                    self.events.put(("error", str(exc), source))
+            threading.Thread(target=replay_worker, daemon=True).start()
+            return
+
+        # -- bedtime story path ------------------------------------------
+        if is_bedtime_story_request(text):
+            def bedtime_worker() -> None:
+                try:
+                    from services.bedtime_story_service import generate_bedtime_story
+                    result = generate_bedtime_story(text, self.client)
+                    self.events.put(("answer", result["text"], source))
+                except Exception as exc:
+                    self.events.put(("error", str(exc), source))
+            threading.Thread(target=bedtime_worker, daemon=True).start()
+            return
+        # -- normal chat path ---------------------------------------------
 
         def worker() -> None:
             try:

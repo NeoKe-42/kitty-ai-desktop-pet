@@ -5,6 +5,8 @@ windows/config.json
 windows/long_memory.json
 windows/personality_delta.json
 windows/pending_questions.json
+windows/audio/
+windows/data/
 __pycache__/
 windows/__pycache__/
 *.pyc
@@ -13,6 +15,7 @@ android/local.properties
 android/app/build/
 android/build/
 android/Kitty-AI-Android-debug.apk
+android/Kitty-AI-Android.apk
 *.iml
 .android-build-tools/
 release/_pyinstaller_build/
